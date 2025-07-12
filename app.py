@@ -93,7 +93,6 @@ Give 2-3 bullet points suggesting what the student can do to improve the answer 
 {suggestions}
 """
         result = evaluate_answer(eval_prompt)
-        # Try to extract the score from the result for CSV storage
         match = re.search(r'Score:\s*(\d+)', result)
         if match:
             llm_score = match.group(1)
@@ -101,7 +100,6 @@ Give 2-3 bullet points suggesting what the student can do to improve the answer 
 
 @app.route('/review', methods=['POST'])
 def review():
-    # Get all fields from hidden inputs and review form
     question = request.form.get('question', '')
     ideal_answer = request.form.get('ideal_answer', '')
     student_answer = request.form.get('student_answer', '')
@@ -110,7 +108,6 @@ def review():
     user_review = request.form.get('user_review', '')
     marks = request.form.get('marks', '')
 
-    # Store in CSV (without suggestions and llm_suggestions)
     csv_file = 'results.csv'
     file_exists = os.path.isfile(csv_file)
     with open(csv_file, 'a', newline='', encoding='utf-8') as f:
