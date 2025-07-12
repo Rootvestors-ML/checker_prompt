@@ -107,14 +107,17 @@ def review():
     user_marks = request.form.get('user_marks', '')
     user_review = request.form.get('user_review', '')
     marks = request.form.get('marks', '')
+    llm_reasoning_rating = request.form.get('llm_reasoning_rating', '')
+    llm_marks_rating = request.form.get('llm_marks_rating', '')
+    llm_suggestions_rating = request.form.get('llm_suggestions_rating', '')
 
     csv_file = 'results.csv'
     file_exists = os.path.isfile(csv_file)
     with open(csv_file, 'a', newline='', encoding='utf-8') as f:
         writer = csv.writer(f)
         if not file_exists:
-            writer.writerow(['question', 'ideal_answer', 'student_answer', 'llm_marks', 'user_marks', 'user_review', 'marks'])
-        writer.writerow([question, ideal_answer, student_answer, llm_score, user_marks, user_review, marks])
+            writer.writerow(['question', 'ideal_answer', 'student_answer', 'llm_marks', 'user_marks', 'user_review', 'marks', 'llm_reasoning_rating', 'llm_marks_rating', 'llm_suggestions_rating'])
+        writer.writerow([question, ideal_answer, student_answer, llm_score, user_marks, user_review, marks, llm_reasoning_rating, llm_marks_rating, llm_suggestions_rating])
     flash('Review submitted and saved!')
     return redirect(url_for('index'))
 

@@ -6,56 +6,124 @@
     <title>Student Answer Evaluator</title>
     <style>
         body { font-family: Arial, sans-serif; margin: 40px; background: #f7f7f7; }
-        .container { max-width: 600px; margin: auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .main-flex { display: flex; gap: 32px; justify-content: center; align-items: flex-start; }
+        .left-col, .right-col { background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .left-col { min-width: 340px; max-width: 400px; flex: 1; }
+        .right-col { min-width: 340px; max-width: 500px; flex: 1; }
         h1 { text-align: center; }
         label { display: block; margin-top: 15px; font-weight: bold; }
         textarea, input[type="text"] { width: 100%; padding: 8px; margin-top: 5px; border-radius: 4px; border: 1px solid #ccc; }
         button { margin-top: 20px; width: 100%; padding: 10px; background: #007bff; color: #fff; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; }
         button:hover { background: #0056b3; }
-        .result { background: #e9ffe9; border: 1px solid #b2ffb2; padding: 15px; border-radius: 4px; margin-top: 25px; white-space: pre-wrap; }
+        .result { background: #e9ffe9; border: 1px solid #b2ffb2; padding: 15px; border-radius: 4px; margin-top: 0; white-space: pre-wrap; }
+        .submitted-data { background: #f0f0ff; border: 1px solid #b2b2ff; padding: 15px; border-radius: 4px; margin-top: 25px; }
+        .loading-modal {
+            display: none;
+            position: fixed;
+            z-index: 9999;
+            left: 0;
+            top: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0,0,0,0.3);
+            justify-content: center;
+            align-items: center;
+        }
+        .loading-content {
+            background: #fff;
+            padding: 30px 40px;
+            border-radius: 10px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007bff;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 16px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
+    <script>
+        function showLoading() {
+            document.getElementById('loading-modal').style.display = 'flex';
+        }
+        window.onload = function() {
+            var evalForm = document.getElementById('evalForm');
+            if (evalForm) {
+                evalForm.onsubmit = function() {
+                    showLoading();
+                };
+            }
+        };
+    </script>
 </head>
 <body>
-    <div class="container">
-        <h1>Student Answer Evaluator</h1>
-        <form method="post">
-            <label for="marks">Marks (optional):</label>
-            <input type="text" id="marks" name="marks" placeholder="e.g. 10">
+    <div class="main-flex">
+        <div class="left-col">
+            <h1>Evaluator/Checker</h1>
+            <form method="post" id="evalForm">
+                <label for="marks">Marks (optional):</label>
+                <input type="text" id="marks" name="marks" placeholder="e.g. 10" value="{{ marks }}">
 
-            <label for="question">Question:</label>
-            <textarea id="question" name="question" rows="3" required></textarea>
+                <label for="question">Question:</label>
+                <textarea id="question" name="question" rows="3" required>{{ question }}</textarea>
 
-            <label for="ideal_answer">Ideal Answer:</label>
-            <textarea id="ideal_answer" name="ideal_answer" rows="4" required></textarea>
+                <label for="ideal_answer">Ideal Answer:</label>
+                <textarea id="ideal_answer" name="ideal_answer" rows="4" required>{{ ideal_answer }}</textarea>
 
-            <label for="student_answer">Student Answer:</label>
-            <textarea id="student_answer" name="student_answer" rows="4" required></textarea>
+                <label for="student_answer">Student Answer:</label>
+                <textarea id="student_answer" name="student_answer" rows="4" required>{{ student_answer }}</textarea>
 
-            <label for="suggestions">Suggestions for Evaluation (optional):</label>
-            <textarea id="suggestions" name="suggestions" rows="2" placeholder="e.g. Focus on use of technical terms, penalize vague statements, etc."></textarea>
+                <label for="suggestions">Suggestions for Evaluation (optional):</label>
+                <textarea id="suggestions" name="suggestions" rows="2" placeholder="e.g. Focus on use of technical terms, penalize vague statements, etc.">{{ suggestions }}</textarea>
 
-            <button type="submit">Evaluate</button>
-        </form>
-        {% if result %}
-            <div class="result">
-                <strong>Evaluation Result:</strong><br>
-                {{ result }}
-            </div>
-            <form method="post" action="/review" style="margin-top:30px;">
-                <h3>Submit Your Review</h3>
-                <label for="user_marks">Your Marks:</label>
-                <input type="text" id="user_marks" name="user_marks" required>
-                <label for="user_review">Your Review/Suggestion about LLM:</label>
-                <textarea id="user_review" name="user_review" rows="2" required></textarea>
-                <!-- Hidden fields to pass all data -->
-                <input type="hidden" name="question" value="{{ question|e }}">
-                <input type="hidden" name="ideal_answer" value="{{ ideal_answer|e }}">
-                <input type="hidden" name="student_answer" value="{{ student_answer|e }}">
-                <input type="hidden" name="llm_score" value="{{ llm_score }}">
-                <input type="hidden" name="marks" value="{{ marks }}">
-                <button type="submit">Submit Review</button>
+                <button type="submit">Evaluate</button>
             </form>
-        {% endif %}
+        </div>
+        <div class="right-col">
+            <div id="loading-modal" class="loading-modal">
+                <div class="loading-content">
+                    <div class="spinner"></div>
+                    <div>Evaluating... Please wait.</div>
+                </div>
+            </div>
+            {% if result %}
+                <div class="result">
+                    <strong>Evaluation Result:</strong><br>
+                    {{ result }}
+                </div>
+                <form method="post" action="/review" style="margin-top:30px;">
+                    <h3>Submit Your Review</h3>
+                    <label for="user_marks">Your Marks:</label>
+                    <input type="text" id="user_marks" name="user_marks" required>
+                    <label for="user_review">Your Review/Suggestion about LLM:</label>
+                    <textarea id="user_review" name="user_review" rows="2" required></textarea>
+                    <label for="llm_reasoning_rating">Rate LLM's Reasoning (out of 3):</label>
+                    <input type="text" id="llm_reasoning_rating" name="llm_reasoning_rating" value="{{ llm_reasoning_rating }}" required>
+                    <label for="llm_marks_rating">Rate LLM's Marks (out of 3):</label>
+                    <input type="text" id="llm_marks_rating" name="llm_marks_rating" value="{{ llm_marks_rating }}" required>
+                    <label for="llm_suggestions_rating">Rate LLM's Suggestions (out of 3):</label>
+                    <input type="text" id="llm_suggestions_rating" name="llm_suggestions_rating" value="{{ llm_suggestions_rating }}" required>
+                    <!-- Hidden fields to pass all data -->
+                    <input type="hidden" name="question" value="{{ question|e }}">
+                    <input type="hidden" name="ideal_answer" value="{{ ideal_answer|e }}">
+                    <input type="hidden" name="student_answer" value="{{ student_answer|e }}">
+                    <input type="hidden" name="llm_score" value="{{ llm_score }}">
+                    <input type="hidden" name="marks" value="{{ marks }}">
+                    <button type="submit">Submit Review</button>
+                </form>
+            {% endif %}
+        </div>
     </div>
 </body>
 </html> 
