@@ -1,66 +1,125 @@
+from flask import Flask, render_template, request, redirect, url_for, flash
 import os
 import google.generativeai as genai
+import csv
+import re
+
+app = Flask(__name__)
+app.secret_key = 'b7f2e1c9-4a6d-4e8b-9c2a-7e3f1a2b5c8d'  
 
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
 if not GOOGLE_API_KEY:
     GOOGLE_API_KEY = input('AIzaSyCfVkH9UOLAWinEU5z-lwNVA9crbKGvneQ')
 genai.configure(api_key=GOOGLE_API_KEY)
 
-def get_input(prompt):
-    print(prompt)
-    lines = []
-    while True:
-        line = input()
-        if line.strip() == '':
-            break
-        lines.append(line)
-    return '\n'.join(lines)
-
-
-question = get_input('Enter the question (end with empty line):')
-ideal_answer = get_input('Enter the ideal answer (end with empty line):')
-student_answer = get_input('Enter the student answer (end with empty line):')
-
-
-eval_prompt = f"""
-You are an expert evaluator and teacher. Your task is to assess a student's answer by comparing it with the ideal answer based on the given question.
-
-Evaluate the student's answer using the following criteria:
-
-1. **Correctness** - Are the facts and reasoning accurate?
-2. **Completeness** - Does the answer cover all key points from the ideal answer?
-3. **Relevance** - Is the answer focused on the question without going off-topic?
-4. **Clarity** - Is the explanation clear and easy to understand?
-5. **Structure and Flow** - Is the answer logically organized and well-structured?
-
-Use this grading scale:
-- **0-2: Poor** - Many errors or incomplete
-- **3-5: Fair** - Some correct information but major issues
-- **6-8: Good** - Mostly correct, minor gaps or unclear points
-- **9-10: Excellent** - Accurate, complete, and well-explained
-
-### Output Format:
-Score: X/10  
-Reason: [A concise explanation for the score]  
-Suggestions: [Optional — What could be improved]
-
-Question:
-{question}
-
-Ideal Answer:
-{ideal_answer}
-
-Student Answer:
-{student_answer}
-"""
-
-
-def evaluate_answer(prompt):
+def evaluate_answer(eval_prompt):
     model = genai.GenerativeModel('models/gemini-2.5-pro')
-    response = model.generate_content(prompt)
+    response = model.generate_content(eval_prompt)
     return response.text
 
-result = evaluate_answer(eval_prompt)
+@app.route('/', methods=['GET', 'POST'])
+def index():
+    result = None
+    marks = question = ideal_answer = student_answer = suggestions = ''
+    llm_score = ''
+    if request.method == 'POST':
+        marks = request.form.get('marks', '')
+        question = request.form.get('question', '')
+        ideal_answer = request.form.get('ideal_answer', '')
+        student_answer = request.form.get('student_answer', '')
+        suggestions = request.form.get('suggestions', '')
+        
+        eval_prompt = f"""
 
-print("\n--- Evaluation Result ---")
-print(result)
+You are a strict and professional examiner. Your task is to compare a student's answer with the ideal answer and provide a detailed, rubric-based evaluation.
+
+Evaluate based on the following criteria (each out of 10):
+
+1. **Correctness** - Are the facts accurate?
+2. **Completeness** - Are all key points included?
+3. **Relevance** - Is the answer focused on the question?
+4. **Clarity** - Is it well-written and understandable?
+5. **Structure** - Is the answer logically organized?
+
+Be strict. Avoid being overly generous or lenient.
+
+---
+
+### Desired Output Format (Use this structure exactly):
+
+Marks:  
+Correctness: X/10  
+Completeness: X/10  
+Relevance: X/10  
+Clarity: X/10  
+Structure: X/10  
+**Final Score: X/{marks}**
+
+---
+
+# Reasoning:
+
+1. Knowledge Understanding:
+Comment on the depth of conceptual understanding shown in the answer.
+
+2. Use of Technical or Key Terms: 
+Mention if important subject-specific terms were missing or well-used.
+
+3. Coverage of Key Points:
+Which key parts of the ideal answer were included or missing?
+
+4. Clarity & Expression: 
+Was the answer well-phrased, concise, and readable?
+
+---
+
+# Suggestions for Improvement:
+Give 2-3 bullet points suggesting what the student can do to improve the answer next time.
+
+---
+
+# Now Evaluate the Following:
+
+**Question:**  
+{question}
+
+**Ideal Answer:**  
+{ideal_answer}
+
+**Student Answer:**  
+{student_answer}
+
+**Custom Notes (if any):**  
+{suggestions}
+"""
+        result = evaluate_answer(eval_prompt)
+        # Try to extract the score from the result for CSV storage
+        match = re.search(r'Score:\s*(\d+)', result)
+        if match:
+            llm_score = match.group(1)
+    return render_template('index.html', result=result, marks=marks, question=question, ideal_answer=ideal_answer, student_answer=student_answer, suggestions=suggestions, llm_score=llm_score)
+
+@app.route('/review', methods=['POST'])
+def review():
+    # Get all fields from hidden inputs and review form
+    question = request.form.get('question', '')
+    ideal_answer = request.form.get('ideal_answer', '')
+    student_answer = request.form.get('student_answer', '')
+    llm_score = request.form.get('llm_score', '')
+    user_marks = request.form.get('user_marks', '')
+    user_review = request.form.get('user_review', '')
+    marks = request.form.get('marks', '')
+
+    # Store in CSV (without suggestions and llm_suggestions)
+    csv_file = 'results.csv'
+    file_exists = os.path.isfile(csv_file)
+    with open(csv_file, 'a', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        if not file_exists:
+            writer.writerow(['question', 'ideal_answer', 'student_answer', 'llm_marks', 'user_marks', 'user_review', 'marks'])
+        writer.writerow([question, ideal_answer, student_answer, llm_score, user_marks, user_review, marks])
+    flash('Review submitted and saved!')
+    return redirect(url_for('index'))
+
+if __name__ == '__main__':
+    app.run(debug=True)
