@@ -71,18 +71,21 @@
     <div class="main-flex">
         <div class="left-col">
             <h1>Evaluator/Checker</h1>
-            <form method="post" id="evalForm">
+            <form method="post" id="evalForm" enctype="multipart/form-data">
                 <label for="marks">Marks (optional):</label>
                 <input type="text" id="marks" name="marks" placeholder="e.g. 10" value="{{ marks }}">
 
                 <label for="question">Question:</label>
-                <textarea id="question" name="question" rows="3" required>{{ question }}</textarea>
+                <textarea id="question" name="question" rows="3">{{ question }}</textarea>
+                <input type="file" id="question_file" name="question_file" accept="image/*,application/pdf">
 
                 <label for="ideal_answer">Ideal Answer:</label>
-                <textarea id="ideal_answer" name="ideal_answer" rows="4" required>{{ ideal_answer }}</textarea>
+                <textarea id="ideal_answer" name="ideal_answer" rows="4">{{ ideal_answer }}</textarea>
+                <input type="file" id="ideal_answer_file" name="ideal_answer_file" accept="image/*,application/pdf">
 
                 <label for="student_answer">Student Answer:</label>
-                <textarea id="student_answer" name="student_answer" rows="4" required>{{ student_answer }}</textarea>
+                <textarea id="student_answer" name="student_answer" rows="4">{{ student_answer }}</textarea>
+                <input type="file" id="student_answer_file" name="student_answer_file" accept="image/*,application/pdf">
 
                 <label for="suggestions">Suggestions for Evaluation (optional):</label>
                 <textarea id="suggestions" name="suggestions" rows="2" placeholder="e.g. Focus on use of technical terms, penalize vague statements, etc.">{{ suggestions }}</textarea>

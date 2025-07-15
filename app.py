@@ -3,6 +3,9 @@ import os
 import google.generativeai as genai
 import csv
 import re
+from werkzeug.utils import secure_filename
+import tempfile
+from PIL import Image
 
 app = Flask(__name__)
 app.secret_key = 'b7f2e1c9-4a6d-4e8b-9c2a-7e3f1a2b5c8d'  
@@ -12,10 +15,11 @@ if not GOOGLE_API_KEY:
     GOOGLE_API_KEY = input('AIzaSyCfVkH9UOLAWinEU5z-lwNVA9crbKGvneQ')
 genai.configure(api_key=GOOGLE_API_KEY)
 
-def evaluate_answer(eval_prompt):
+def evaluate_answer(eval_contents):
     model = genai.GenerativeModel('models/gemini-2.5-pro')
-    response = model.generate_content(eval_prompt)
+    response = model.generate_content(eval_contents)
     return response.text
+
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -28,9 +32,23 @@ def index():
         ideal_answer = request.form.get('ideal_answer', '')
         student_answer = request.form.get('student_answer', '')
         suggestions = request.form.get('suggestions', '')
-        
-        eval_prompt = f"""
 
+        # Handle file uploads
+        files = {}
+        for field in ['question', 'ideal_answer', 'student_answer']:
+            file = request.files.get(f'{field}_file')
+            if file and file.filename:
+                filename = secure_filename(file.filename)
+                ext = filename.rsplit('.', 1)[-1].lower()
+                temp = tempfile.NamedTemporaryFile(delete=False, suffix='.'+ext)
+                file.save(temp.name)
+                files[field] = (temp, ext)
+            else:
+                files[field] = (None, None)
+
+        # Prepare contents for Gemini
+        eval_contents = [
+            f"""
 You are a strict and professional examiner. Your task is to compare a student's answer with the ideal answer and provide a detailed, rubric-based evaluation.
 
 Evaluate based on the following criteria (each out of 10):
@@ -79,20 +97,25 @@ Give 2-3 bullet points suggesting what the student can do to improve the answer 
 ---
 
 # Now Evaluate the Following:
-
-**Question:**  
-{question}
-
-**Ideal Answer:**  
-{ideal_answer}
-
-**Student Answer:**  
-{student_answer}
-
-**Custom Notes (if any):**  
-{suggestions}
 """
-        result = evaluate_answer(eval_prompt)
+        ]
+        # For each field, add text and/or file
+        for field, label in zip(['question', 'ideal_answer', 'student_answer'], ['Question', 'Ideal Answer', 'Student Answer']):
+            text = locals()[field]
+            file_obj, ext = files[field]
+            if text:
+                eval_contents.append(f"**{label}:**\n{text}")
+            if file_obj:
+                if ext in ['jpg', 'jpeg', 'png', 'webp']:
+                    img = Image.open(file_obj.name)
+                    eval_contents.append(img)
+                elif ext == 'pdf':
+                    with open(file_obj.name, 'rb') as f:
+                        eval_contents.append({"mime_type": "application/pdf", "data": f.read()})
+                file_obj.close()
+        if suggestions:
+            eval_contents.append(f"**Custom Notes (if any):**\n{suggestions}")
+        result = evaluate_answer(eval_contents)
         match = re.search(r'Score:\s*(\d+)', result)
         if match:
             llm_score = match.group(1)
